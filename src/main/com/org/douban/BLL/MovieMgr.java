@@ -326,6 +326,7 @@ public class MovieMgr {
             jsonObject.put("casts",array);
         }
 
+        System.out.println("git test");
         return jsonObject.toString();
     }
     //test

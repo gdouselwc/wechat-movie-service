@@ -3,10 +3,7 @@ package org.MySqlDBManager;
 import org.apache.log4j.Logger;
 
 import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import java.sql.*;
 import java.util.Properties;
 
 /**
@@ -54,7 +51,7 @@ public class MySQLHelper {
     }
 
     //执行操作
-    public boolean ExecuteNonquery(String sql){
+    public boolean ExecuteNonquery(String sql) throws Exception {
         if(sql == null || sql == ""){
             return false;
         }
@@ -71,6 +68,7 @@ public class MySQLHelper {
             }
         }catch (Exception e){
             logger.error("操作数据库异常："+e.toString());
+            throw e;
         }
         return flg;
     }

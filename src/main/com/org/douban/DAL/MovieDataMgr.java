@@ -6,6 +6,7 @@ import org.douban.model.MovieDetailModel;
 import org.douban.model.MovieMainModel;
 import org.douban.model.MoviePeopleModel;
 import org.douban.model.MovieSummaryModel;
+import test.Save;
 
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -28,7 +29,7 @@ public class MovieDataMgr {
         }
         String cnt = "SELECT (COALESCE(max(SerialID),0)+1) as serialid from moviemain";
         String sql = "insert into moviemain(SerialID,movietype,startCnt,count,rank,box,isNew,delta,total,title,rankdate,createtime)" +
-                " values(%d,%d,%d,%d,%d,%d,'%s',%d,%d,'%s',CURDATE(),CURRENT_TIMESTAMP())";
+                " values(%d,%d,%d,%d,%d,%d,\"%s\",%d,%d,\"%s\",CURDATE(),CURRENT_TIMESTAMP())";
         MySQLHelper helper = new MySQLHelper();
         ResultSet resultSet = helper.ExecuteQuery(cnt);
         int serialid = Integer.MIN_VALUE;
@@ -53,11 +54,11 @@ public class MovieDataMgr {
         if(summaryModel == null){
             return;
         }
-        String sql = "insert into moviesummary(movieID,serialID,MovieName,ScoreAvg,directors,casts,imageURL) " +
-                "values('%s',%d,'%s',%f,'%s','%s','%s')";
+        String sql = "insert into moviesummary(movieID,serialID,movietype,MovieName,ScoreAvg,directors,casts,imageURL) " +
+                "values(\"%s\",%d,%d,\"%s\",%f,\"%s\",\"%s\",\"%s\")";
         MySQLHelper helper = new MySQLHelper();
         try{
-            sql = String.format(sql,summaryModel.getMovieId(),serialid,summaryModel.getMovieName(),
+            sql = String.format(sql,summaryModel.getMovieId(),serialid,summaryModel.getMovieType(),summaryModel.getMovieName(),
                     summaryModel.getScoreAVG(),summaryModel.getDirectors(),summaryModel.getCasts(),
                     summaryModel.getImageURL());
             helper.ExecuteNonquery(sql);
@@ -73,14 +74,15 @@ public class MovieDataMgr {
         if(dm == null){
             return;
         }
-        String sql = "insert into moviedetail(movieID,movieName,scoreAvg,genres,countries,wishCount,collectCount," +
-                "rateCount,imageUrl,MovieYear,summary) values('%s','%s',%f,'%s','%s',%d,%d,%d,'%s','%s','%s')";
+        String sql = "insert into moviedetail(movieID,movietype,movieName,scoreAvg,genres,countries,wishCount,collectCount," +
+                "rateCount,imageUrl,MovieYear,summary) values(\"%s\",%d,\"%s\",%f,\"%s\",\"%s\",%d,%d,%d,\"%s\",\"%s\",\"%s\")";
         MySQLHelper helper = new MySQLHelper();
         try{
-            sql = String.format(sql,dm.getMovieID(),dm.getMovieName(),dm.getScoreAvg(),dm.getGenres(),dm.getCountries(),
+            sql = String.format(sql,dm.getMovieID(),dm.getMovietype(),dm.getMovieName(),dm.getScoreAvg(),dm.getGenres(),dm.getCountries(),
                 dm.getWishCount(),dm.getCollectCount(),dm.getRateCount(),dm.getImageUrl(),dm.getYear(),dm.getSummary());
             helper.ExecuteNonquery(sql);
         }catch (Exception e){
+            //Save.writeTxt(sql);
             logger.error(e.toString());
         }finally {
             helper.Close();
@@ -92,14 +94,15 @@ public class MovieDataMgr {
         if (pm == null){
             return;
         }
-        String sql = "insert into peoplesummary(movieID,peopleID,peopleType,peoplename,imageURL,altURL) " +
-                "values('%s','%s',%d,'%s','%s','%s')";
+        String sql = "insert into peoplesummary(movieID,movietype,peopleID,peopleType,peoplename,imageURL,altURL) " +
+                "values(\"%s\",%d,\"%s\",%d,\"%s\",\"%s\",\"%s\")";
         MySQLHelper helper = new MySQLHelper();
         try{
-            sql = String.format(sql,pm.getMovieID(),pm.getPeopleID(),pm.getPeopleType(),pm.getPeopleName(),
+            sql = String.format(sql,pm.getMovieID(),pm.getMovietype(),pm.getPeopleID(),pm.getPeopleType(),pm.getPeopleName(),
                     pm.getImageURL(),pm.getAltURL());
             helper.ExecuteNonquery(sql);
         }catch (Exception e){
+            Save.writeTxt(sql);
             logger.error(e.toString());
         }finally {
             helper.Close();
@@ -138,7 +141,7 @@ public class MovieDataMgr {
     public MovieDetailModel GetMovieDetail(String movieID){
         MovieDetailModel dm = new MovieDetailModel();
         String sql = "select movieID,movieName,scoreAvg,genres,countries,wishCount,collectCount,rateCount,imageUrl,MovieYear,summary " +
-                "from moviedetail where movieID = '%s'";
+                "from moviedetail where movieID = \"%s\"";
         sql = String.format(sql,movieID);
         MySQLHelper helper = new MySQLHelper();
         try{
@@ -156,7 +159,7 @@ public class MovieDataMgr {
                 dm.setYear(resultSet.getString("MovieYear"));
                 dm.setSummary(resultSet.getString("summary"));
             }
-            sql = "select peoplename,imageURL from peoplesummary where peopleType=0 and movieID='%s'";
+            sql = "select peoplename,imageURL from peoplesummary where peopleType=0 and movieID=\"%s\" ";
             sql = String.format(sql,movieID);
             resultSet = helper.ExecuteQuery(sql);
             HashMap<String,String> castMap = new HashMap<>();

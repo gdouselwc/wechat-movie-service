@@ -10,6 +10,7 @@ import java.util.HashMap;
 @Data
 public class MovieDetailModel {
     private String movieID = null;
+    private int movietype = -1;
     private String movieName    = null;
     private String genres       = null;
     private String countries    = null;

@@ -10,6 +10,7 @@ import org.Utils.Common;
 @Data
 public class MoviePeopleModel {
     private String movieID = null;
+    private int movietype = -1;
     private String peopleID = null;
     //类型：1->导演，0->主演
     private int peopleType = -1;

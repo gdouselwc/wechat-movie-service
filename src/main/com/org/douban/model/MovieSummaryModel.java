@@ -7,6 +7,7 @@ import lombok.Data;
  */
 @Data
 public class MovieSummaryModel {
+    private int movieType = -1;
     private String movieId = null;
     private String movieName = null;
     private double scoreAVG = 0;

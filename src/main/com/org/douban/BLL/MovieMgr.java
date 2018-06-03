@@ -1,6 +1,7 @@
 package org.douban.BLL;
 
 import org.Utils.Common;
+import org.Utils.JsonTrans;
 import org.apache.log4j.Logger;
 import org.douban.DAL.MovieDataMgr;
 import org.douban.Web.WebRequest;
@@ -16,9 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-/**
- * Created by liangwenchang on 2018/5/15.
- */
 public class MovieMgr {
     private static Logger logger = Logger.getLogger(MovieMgr.class);
     //正在热映
@@ -66,6 +64,7 @@ public class MovieMgr {
     //      5：新片榜'
 
     public void GetMovieInfo(int type) {
+        logger.debug("开始搞事情>>>>>>>>>>>>>>>>");
         String url = "";
         switch (type){
             case Common.BEINGFILMS :
@@ -109,83 +108,101 @@ public class MovieMgr {
         DealMovieSummary(serialID,listSM);
         /*处理详情表*/
         List<MoviePeopleModel> list = new ArrayList<>();
-        list = DealMovieDetail(movieIDs);
+        list = DealMovieDetail(movieIDs,type);
+        /*插入影人信息*/
+        logger.debug("开始处理peopleSummary表>>>>>>>>");
         MovieDataMgr dm = new MovieDataMgr();
         for (MoviePeopleModel pm : list){
             dm.insertPeopleSummary(pm);
         }
+        logger.debug("结束搞事情>>>>>>>>>>>>>>>>");
     }
 
     //主表
     private int DealMovieMain(int type,JSONObject jsonObject,List<MovieSummaryModel> listSM,
                               List<String> movieIDs){
+        logger.debug("开始处理movieMain表>>>>>");
         MovieMainModel mainModel = new MovieMainModel();
         mainModel.setMovietype(type);
-        switch (type){
-            //top250,正在热映，即将上映
-            case Common.BEINGFILMS:
-            case Common.COMMINGFILMS:
-            case Common.TOP250FILMS:{
-                mainModel.setCount(jsonObject.getInt("count"));
-                mainModel.setStartCnt(jsonObject.getInt("start"));
-                mainModel.setTotal(jsonObject.getInt("total"));
-                mainModel.setTitle(jsonObject.getString("title"));
-                JSONArray subject = jsonObject.getJSONArray("subjects");
-                subject.forEach((Object item) -> {
-                    MovieSummaryModel summaryModel = new MovieSummaryModel();
-                    summaryModel.setMovieName(((JSONObject)item).getString("title"));
-                    summaryModel.setScoreAVG(((JSONObject)item).getJSONObject("rating").getDouble("average"));
-                    String id = ((JSONObject)item).getString("id");
-                    summaryModel.setMovieId(id);
-                    movieIDs.add(id);
-                    summaryModel.setImageURL(((JSONObject)item).getJSONObject("images").getString("small"));
-                    String directors = "";
-                    String casts = "";
-                    //主演
-                    for(Object o : ((JSONObject)item).getJSONArray("casts")){
-                        casts += ((JSONObject)o).getString("name") + "/";
-                    }
-                    if(casts != ""){
-                        casts = casts.substring(0,casts.lastIndexOf('/'));
-                    }
-                    summaryModel.setCasts(casts);
-                    //导演
-                    for (Object o : ((JSONObject)item).getJSONArray("directors")){
-                        directors += ((JSONObject) o).getString("name") + "/";
-                    }
-                    if(directors != ""){
-                        directors = directors.substring(0,directors.lastIndexOf('/')-1);
-                    }
-                    summaryModel.setDirectors(directors);
-                    listSM.add(summaryModel);
-                });
-                break;
+        try{
+            switch (type){
+                //top250,正在热映，即将上映
+                case Common.BEINGFILMS:
+                case Common.COMMINGFILMS:
+                case Common.TOP250FILMS:{
+                    mainModel.setCount(JsonTrans.GetInt(jsonObject,"count"));
+                    mainModel.setStartCnt(JsonTrans.GetInt(jsonObject,"start"));
+                    mainModel.setTotal(JsonTrans.GetInt(jsonObject,"total"));
+                    mainModel.setTitle(JsonTrans.GetString(jsonObject,"title"));
+                    JSONArray subject = jsonObject.getJSONArray("subjects");
+                    subject.forEach((Object item) -> {
+                        MovieSummaryModel summaryModel = new MovieSummaryModel();
+                        summaryModel.setMovieType(type);
+                        summaryModel.setMovieName(JsonTrans.GetString((JSONObject) item,"title"));
+                        summaryModel.setScoreAVG(JsonTrans.GetDouble(((JSONObject)item).getJSONObject("rating"),"average"));
+                        String id = JsonTrans.GetString((JSONObject)item,"id");
+                        summaryModel.setMovieId(id);
+                        if(id != null) {
+                            movieIDs.add(id);
+                        }
+                        summaryModel.setImageURL(JsonTrans.GetString(((JSONObject)item).getJSONObject("images"),"small"));
+                        String directors = "";
+                        String casts = "";
+                        //主演
+                        for(Object o : ((JSONObject)item).getJSONArray("casts")){
+                            String c = JsonTrans.GetString((JSONObject)o,"name");
+                            if(c != null){
+                                casts += ((JSONObject)o).getString("name") + "/";
+                            }
+                        }
+                        if(casts != ""){
+                            casts = casts.substring(0,casts.lastIndexOf('/'));
+                        }
+                        summaryModel.setCasts(casts);
+                        //导演
+                        for (Object o : ((JSONObject)item).getJSONArray("directors")){
+                            String d = JsonTrans.GetString((JSONObject)o,"name");
+                            if(d != null){
+                                directors += ((JSONObject) o).getString("name") + "/";
+                            }
+                        }
+                        if(directors != ""){
+                            directors = directors.substring(0,directors.lastIndexOf('/')-1);
+                        }
+                        summaryModel.setDirectors(directors);
+                        listSM.add(summaryModel);
+                    });
+                    break;
+                }
+                //口碑 TODO need_permission
+                case Common.PRAISEFILMS:{
+                    mainModel.setTitle(JsonTrans.GetString(jsonObject,"title"));
+                    String subject = JsonTrans.GetString(jsonObject,"subjects");
+                    JSONObject jtmp = new JSONObject(subject);
+                    mainModel.setRank(JsonTrans.GetInt(jtmp,"rank"));
+                    mainModel.setDelta(JsonTrans.GetInt(jtmp,"delta"));
+                    break;
+                }
+                //北美
+                case Common.USBOXFILMS:{
+                    mainModel.setTitle(JsonTrans.GetString(jsonObject,"title"));
+                    mainModel.setRankdate(JsonTrans.GetString(jsonObject,"date"));
+                    String subject = JsonTrans.GetString(jsonObject,"subjects");
+                    JSONObject jtmp = new JSONObject(subject);
+                    mainModel.setRank(JsonTrans.GetInt(jtmp,"rank"));
+                    mainModel.setBox(JsonTrans.GetInt(jtmp,"box"));
+                    mainModel.setIsNew(JsonTrans.GetString(jtmp,"new")=="true"?'1':'0');
+                    break;
+                }
+                //新片 TODO need_permission
+                case Common.NEWFILMS:{
+                    mainModel.setTitle(JsonTrans.GetString(jsonObject,"title"));
+                    break;
+                }
             }
-            //口碑 TODO need_permission
-            case Common.PRAISEFILMS:{
-                mainModel.setTitle(jsonObject.getString("title"));
-                String subject = jsonObject.getString("subjects");
-                JSONObject jtmp = new JSONObject(subject);
-                mainModel.setRank(jtmp.getInt("rank"));
-                mainModel.setDelta(jtmp.getInt("delta"));
-                break;
-            }
-            //北美
-            case Common.USBOXFILMS:{
-                mainModel.setTitle(jsonObject.getString("title"));
-                mainModel.setRankdate(jsonObject.getString("date"));
-                String subject = jsonObject.getString("subjects");
-                JSONObject jtmp = new JSONObject(subject);
-                mainModel.setRank(jtmp.getInt("rank"));
-                mainModel.setBox(jtmp.getInt("box"));
-                mainModel.setIsNew(jtmp.getString("new")=="true"?'1':'0');
-                break;
-            }
-            //新片 TODO need_permission
-            case Common.NEWFILMS:{
-                mainModel.setTitle(jsonObject.getString("title"));
-                break;
-            }
+        }catch (Exception e){
+            logger.error(e.toString());
+            return Integer.MIN_VALUE;
         }
         MovieDataMgr dm = new MovieDataMgr();
         return dm.insertMovieMain(mainModel);
@@ -197,6 +214,7 @@ public class MovieMgr {
             logger.debug("serialid获取失败");
             return;
         }
+        logger.debug("开始处理movieSummary表>>>>>>>>");
         MovieDataMgr dm = new MovieDataMgr();
         for(MovieSummaryModel sm : listSM){
             dm.insertMovieSummary(serialid,sm);
@@ -204,22 +222,25 @@ public class MovieMgr {
     }
 
     //电影详细信息
-    private List<MoviePeopleModel> DealMovieDetail(List<String> movieIDs){
+    private List<MoviePeopleModel> DealMovieDetail(List<String> movieIDs,int type){
+        logger.debug("开始处理movieDetail表>>>>>>>>");
         List<MovieDetailModel> list = new ArrayList<>();
         List<MoviePeopleModel> castsList = new ArrayList<>();
         for(String id : movieIDs){
             MovieDetailModel detailModel = new MovieDetailModel();
+            detailModel.setMovietype(type);
             String url = this.MovieDetail + id;
             String result = new WebRequest().sendGet(url);
             JSONObject jsonObject = new JSONObject(result);
             System.out.println(result);
             try {
-                detailModel.setScoreAvg(jsonObject.getJSONObject("rating").getDouble("average"));
-                detailModel.setRateCount(jsonObject.getInt("ratings_count"));
-                detailModel.setCollectCount(jsonObject.getInt("collect_count"));
-                detailModel.setWishCount(jsonObject.getInt("wish_count"));
+
+                detailModel.setScoreAvg(JsonTrans.GetDouble(jsonObject.getJSONObject("rating"),"average"));
+                detailModel.setRateCount(JsonTrans.GetInt(jsonObject,"ratings_count"));
+                detailModel.setCollectCount(JsonTrans.GetInt(jsonObject,"collect_count"));
+                detailModel.setWishCount(JsonTrans.GetInt(jsonObject,"wish_count"));
                 detailModel.setMovieID(id);
-                detailModel.setMovieName(jsonObject.getString("title"));
+                detailModel.setMovieName(JsonTrans.GetString(jsonObject,"title"));
                 JSONArray tmp = jsonObject.getJSONArray("countries");
                 String countries = "";
                 for(int i = 0; i < tmp.length();++i){
@@ -238,9 +259,9 @@ public class MovieMgr {
                     genres.substring(0,genres.lastIndexOf(','));
                 }
                 detailModel.setGenres(genres);
-                detailModel.setImageUrl(jsonObject.getJSONObject("images").getString("small"));
-                detailModel.setSummary(jsonObject.getString("summary"));
-                detailModel.setYear(jsonObject.getString("year"));
+                detailModel.setImageUrl(JsonTrans.GetString(jsonObject.getJSONObject("images"),"small"));
+                detailModel.setSummary(JsonTrans.GetString(jsonObject,"summary"));
+                detailModel.setYear(JsonTrans.GetString(jsonObject,"year"));
                 list.add(detailModel);
 
                 //影人条目
@@ -249,10 +270,11 @@ public class MovieMgr {
                 director.forEach(item -> {
                     MoviePeopleModel peopleModel = new MoviePeopleModel();
                     peopleModel.setMovieID(id);
-                    peopleModel.setPeopleID(((JSONObject)item).getString("id"));
-                    peopleModel.setPeopleName(((JSONObject)item).getString("name"));
-                    peopleModel.setAltURL(((JSONObject)item).getString("alt"));
-                    peopleModel.setImageURL(((JSONObject)item).getJSONObject("avatars").getString("small"));
+                    peopleModel.setMovietype(type);
+                    peopleModel.setPeopleID(JsonTrans.GetString((JSONObject)item,"id"));
+                    peopleModel.setPeopleName(JsonTrans.GetString((JSONObject)item,"name"));
+                    peopleModel.setAltURL(JsonTrans.GetString((JSONObject)item,"alt"));
+                    peopleModel.setImageURL(JsonTrans.GetString(((JSONObject)item).getJSONObject("avatars"),"small"));
                     peopleModel.setPeopleType(Common.DIRECTOR);
                     castsList.add(peopleModel);
                 });
@@ -260,11 +282,12 @@ public class MovieMgr {
                 JSONArray casts = jsonObject.getJSONArray("casts");
                 casts.forEach(item ->{
                     MoviePeopleModel peopleModel = new MoviePeopleModel();
+                    peopleModel.setMovietype(type);
                     peopleModel.setMovieID(id);
-                    peopleModel.setPeopleID(((JSONObject)item).getString("id"));
-                    peopleModel.setPeopleName(((JSONObject)item).getString("name"));
-                    peopleModel.setAltURL(((JSONObject)item).getString("alt"));
-                    peopleModel.setImageURL(((JSONObject)item).getJSONObject("avatars").getString("small"));
+                    peopleModel.setPeopleID(JsonTrans.GetString((JSONObject)item,"id"));
+                    peopleModel.setPeopleName(JsonTrans.GetString((JSONObject)item,"name"));
+                    peopleModel.setAltURL(JsonTrans.GetString((JSONObject)item,"alt"));
+                    peopleModel.setImageURL(JsonTrans.GetString(((JSONObject)item).getJSONObject("avatars"),"small"));
                     peopleModel.setPeopleType(Common.CAST);
                     castsList.add(peopleModel);
                 });
@@ -332,12 +355,17 @@ public class MovieMgr {
     //test
     public static void main(String[] args){
         MovieMgr mm = new MovieMgr();
-        //mm.GetMovieInfo(0);
+        for(int i = 0; i < 3; ++i){
+            mm.GetMovieInfo(i);
+        }
+        //mm.GetMovieInfo(2);
+
+
         //String str = mm.GetMovieSummary(0);
         //System.out.println(str);
-        List<String> ids = new ArrayList<>();
-        ids.add("24773958");
+        //List<String> ids = new ArrayList<>();
+        //ids.add("24773958");
         //mm.DealMovieDetail(ids);
-        mm.GetMovieDetail("24773958");
+        //mm.GetMovieDetail("24773958");
     }
 }

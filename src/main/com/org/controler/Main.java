@@ -39,4 +39,14 @@ public class Main {
         result = mm.GetMovieDetail(movieID);
         return result;
     }
+    @RequestMapping(method = RequestMethod.GET,value = "/CommingFilms",
+        produces = "text/html;charset=UTF-8")
+    public @ResponseBody
+    String GetCommingFilms(){
+        System.out.println("GetCommingFilms>>>>>>>>>>>>>>>>");
+        String result = "";
+        MovieMgr mm = new MovieMgr();
+        result = mm.GetMovieSummary(1);
+        return result;
+    }
 }
